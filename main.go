@@ -40,7 +40,7 @@ type Block struct {
 	PrevHash     string
 	Timestamp    int64
 	Transactions []Transaction
-	MerleRoot    string
+	MerkleRoot   string
 }
 
 func (block *Block) IsValid() bool {
@@ -76,6 +76,31 @@ func NewBlock(prevBlock *Block, transactions []Transaction) *Block {
 	}
 	newBlock.Hash = newBlock.ComputeHash()
 	return newBlock
+}
+
+func (block *Block) ComputeMerkleRoot() {
+	layer := []string{}
+	for _, tx := range block.Transactions {
+		layer = append(layer, tx.From)
+	}
+
+	for len(layer) > 1 {
+		new_layer := []string{}
+		fmt.Println("Layer:", layer)
+		for j := 0; j < len(layer); j++ {
+			if j%2 == 0 {
+				left := layer[j]
+				right := left
+				if j+1 < len(layer) {
+					right = layer[j+1]
+				}
+				new_layer = append(new_layer, left+right)
+			}
+		}
+		layer = new_layer
+	}
+
+	block.MerkleRoot = layer[0]
 }
 
 type Blockchain struct {
@@ -134,18 +159,21 @@ func main() {
 	mempool.AddTransaction(*tx2)
 	tx3 := NewTransaction("Zhanserik", "Danyal", 30)
 	mempool.AddTransaction(*tx3)
-	fmt.Println("Mempool before creating block:", mempool.Transactions)
+	// fmt.Println("Mempool before creating block:", mempool.Transactions)
 
 	genesisBlock := NewBlock(nil, mempool.GetTransactions(3))
 
-	fmt.Println(genesisBlock)
+	// fmt.Println(genesisBlock)
 	blockchain.AddBlock(*genesisBlock)
 
-	fmt.Println("Blockchain:", blockchain)
+	// fmt.Println("Blockchain:", blockchain)
 	tx4 := NewTransaction("Aral", "Ilyas", 70)
 	mempool.AddTransaction(*tx4)
 
 	blockSecond := NewBlock(genesisBlock, mempool.GetTransactions(3))
 	blockchain.AddBlock(*blockSecond)
-	fmt.Println(blockchain)
+	// fmt.Println(blockchain)
+	blockchain.Blocks[0].ComputeMerkleRoot()
+	fmt.Println(blockchain.Blocks[0])
+	fmt.Println(blockchain.Blocks[0].MerkleRoot)
 }
