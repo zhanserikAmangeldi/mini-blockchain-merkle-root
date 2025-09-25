@@ -111,35 +111,53 @@ func (block *Block) ComputeMerkleRoot() {
 }
 
 func (block *Block) computeMerkleRootInternal() string {
+	fmt.Printf("\nCOMPUTING MERKLE ROOT FOR BLOCK %d\n", block.BlockHeight)
+	fmt.Println(strings.Repeat("=", 40))
 	if len(block.Transactions) == 0 {
 		return ""
 	}
 
 	layer := []string{}
-	for _, tx := range block.Transactions {
-		layer = append(layer, tx.From)
+
+	fmt.Printf("Starting with %d transactions:\n", len(block.Transactions))
+	for i, tx := range block.Transactions {
+		layer = append(layer, tx.Hash)
+		fmt.Printf("   TX%d: %s -> %s (%.2f) | Hash: %s\n",
+			i+1, tx.From, tx.To, tx.Amount, tx.Hash)
 	}
+
+	levelNum := 0
 
 	for len(layer) > 1 {
 		var nextLayer []string
 
-		for i := 0; i < len(layer)-1; i += 2 {
+		levelNum++
+		fmt.Printf("\nLevel %d Processing (%d nodes):\n", levelNum, len(layer))
+		fmt.Println("Layer:", layer)
+		for i := 0; i < len(layer); i += 2 {
 			left := layer[i]
 			right := left
 
 			if i+1 < len(layer) {
 				right = layer[i+1]
+				fmt.Printf("   Pair %d: %s + %s\n", (i/2)+1, left, right)
+			} else {
+				fmt.Printf("   Pair %d: %s + %s (duplicated - odd number)\n", (i/2)+1, left, right)
 			}
 
 			combined := left + right
 			hash := sha256.Sum256([]byte(combined))
 			nextLayer = append(nextLayer, fmt.Sprintf("%x", hash))
+
+			fmt.Printf("      Result: %x\n", hash)
 		}
 
 		layer = nextLayer
-		fmt.Println("Merkle layer:", layer)
+		fmt.Printf("   → Next level will have %d nodes\n", len(nextLayer))
 	}
 
+	fmt.Printf("\nMERKLE ROOT: %s\n", layer[0])
+	fmt.Println(strings.Repeat("=", 80))
 	return layer[0]
 }
 
