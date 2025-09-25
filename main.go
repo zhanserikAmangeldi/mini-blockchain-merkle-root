@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -19,8 +21,9 @@ func (tx *Transaction) IsValid() bool {
 }
 
 func (tx *Transaction) ComputeHash() string {
-	hash := tx.From + tx.To + strconv.FormatFloat(tx.Amount, 'f', 6, 64) + strconv.FormatInt(tx.Timestamp, 10)
-	return hash
+	transactionData := tx.From + tx.To + strconv.FormatFloat(tx.Amount, 'f', 6, 64) + strconv.FormatInt(tx.Timestamp, 10)
+	hash := sha256.Sum256([]byte(transactionData))
+	return fmt.Sprintf("%x", hash)
 }
 
 func NewTransaction(from, to string, amount float64) *Transaction {
@@ -41,28 +44,109 @@ type Block struct {
 	Timestamp    int64
 	Transactions []Transaction
 	MerkleRoot   string
+	Nonce        int
 }
 
 func (block *Block) IsValid() bool {
-	return block.BlockHeight >= 0 && block.Hash != "" && block.PrevHash != "" && len(block.Transactions) > 0
+	if block.BlockHeight < 0 || len(block.Transactions) == 0 {
+		return false
+	}
+
+	for _, tx := range block.Transactions {
+		if !tx.IsValid() {
+			return false
+		}
+
+		expectedHash := (&Transaction{
+			From:      tx.From,
+			To:        tx.To,
+			Amount:    tx.Amount,
+			Timestamp: tx.Timestamp,
+		}).ComputeHash()
+
+		if tx.Hash != expectedHash {
+			return false
+		}
+	}
+
+	expectedMerkleRoot := block.computeMerkleRootInternal()
+	if block.MerkleRoot != expectedMerkleRoot {
+		return false
+	}
+
+	expectedBlockHash := block.computeHashInternal()
+	return block.Hash == expectedBlockHash
+}
+
+func (block *Block) computeHashInternal() string {
+	blockData := strconv.Itoa(block.BlockHeight) +
+		block.PrevHash +
+		strconv.FormatInt(block.Timestamp, 10) +
+		block.MerkleRoot +
+		strconv.Itoa(block.Nonce)
+
+	hash := sha256.Sum256([]byte(blockData))
+
+	return fmt.Sprintf("%x", hash)
 }
 
 func (block *Block) ComputeHash() string {
-	hash := strconv.Itoa(int(block.Timestamp))
-	return hash
+	block.Hash = block.computeHashInternal()
+	return block.Hash
 }
 
 func (block *Block) AddTransaction(tx Transaction) {
 	if !tx.IsValid() {
+		fmt.Println("Invalid transaction, not adding to block.")
 		return
 	}
 
 	block.Transactions = append(block.Transactions, tx)
+
+	block.ComputeMerkleRoot()
+}
+
+func (block *Block) ComputeMerkleRoot() {
+	block.MerkleRoot = block.computeMerkleRootInternal()
+}
+
+func (block *Block) computeMerkleRootInternal() string {
+	if len(block.Transactions) == 0 {
+		return ""
+	}
+
+	layer := []string{}
+	for _, tx := range block.Transactions {
+		layer = append(layer, tx.From)
+	}
+
+	for len(layer) > 1 {
+		var nextLayer []string
+
+		for i := 0; i < len(layer)-1; i += 2 {
+			left := layer[i]
+			right := left
+
+			if i+1 < len(layer) {
+				right = layer[i+1]
+			}
+
+			combined := left + right
+			hash := sha256.Sum256([]byte(combined))
+			nextLayer = append(nextLayer, fmt.Sprintf("%x", hash))
+		}
+
+		layer = nextLayer
+		fmt.Println("Merkle layer:", layer)
+	}
+
+	return layer[0]
 }
 
 func NewBlock(prevBlock *Block, transactions []Transaction) *Block {
 	height := 0
-	prevHash := "0000000000000000000000000000000000000000000000000000000000000000000"
+	prevHash := strings.Repeat("0", 64)
+
 	if prevBlock != nil {
 		height = prevBlock.BlockHeight + 1
 		prevHash = prevBlock.Hash
@@ -73,38 +157,71 @@ func NewBlock(prevBlock *Block, transactions []Transaction) *Block {
 		PrevHash:     prevHash,
 		Timestamp:    time.Now().Unix(),
 		Transactions: transactions,
+		Nonce:        0,
 	}
-	newBlock.Hash = newBlock.ComputeHash()
+
+	newBlock.ComputeMerkleRoot()
+	newBlock.ComputeHash()
+
 	return newBlock
-}
-
-func (block *Block) ComputeMerkleRoot() {
-	layer := []string{}
-	for _, tx := range block.Transactions {
-		layer = append(layer, tx.From)
-	}
-
-	for len(layer) > 1 {
-		new_layer := []string{}
-		fmt.Println("Layer:", layer)
-		for j := 0; j < len(layer); j++ {
-			if j%2 == 0 {
-				left := layer[j]
-				right := left
-				if j+1 < len(layer) {
-					right = layer[j+1]
-				}
-				new_layer = append(new_layer, left+right)
-			}
-		}
-		layer = new_layer
-	}
-
-	block.MerkleRoot = layer[0]
 }
 
 type Blockchain struct {
 	Blocks []Block
+}
+
+func (blockchain *Blockchain) isValid() bool {
+	if len(blockchain.Blocks) == 0 {
+		return true
+	}
+
+	if !blockchain.Blocks[0].IsValid() {
+		return false
+	}
+
+	for i := 1; i < len(blockchain.Blocks); i++ {
+		currentBlock := blockchain.Blocks[i]
+		prevBlock := blockchain.Blocks[i-1]
+
+		if !currentBlock.IsValid() {
+			return false
+		}
+
+		if currentBlock.PrevHash != prevBlock.Hash {
+			return false
+		}
+
+		if currentBlock.BlockHeight != prevBlock.BlockHeight+1 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (blockchain *Blockchain) AddBlock(newBlock Block) bool {
+	if !newBlock.IsValid() {
+		fmt.Println("Invalid block, cannot add to blockchain")
+		return false
+	}
+
+	if len(blockchain.Blocks) > 0 {
+		lastBlock := blockchain.Blocks[len(blockchain.Blocks)-1]
+		if newBlock.PrevHash != lastBlock.Hash || newBlock.BlockHeight != lastBlock.BlockHeight+1 {
+			fmt.Println("Block does not link properly to the last block, cannot add to blockchain")
+			return false
+		}
+	}
+
+	blockchain.Blocks = append(blockchain.Blocks, newBlock)
+	return true
+}
+
+func (blockchain *Blockchain) GetLastBlock() *Block {
+	if len(blockchain.Blocks) == 0 {
+		return nil
+	}
+	return &blockchain.Blocks[len(blockchain.Blocks)-1]
 }
 
 type MemPool struct {
@@ -114,14 +231,24 @@ type MemPool struct {
 
 func (mempool *MemPool) AddTransaction(tx Transaction) {
 	if !tx.IsValid() {
+		fmt.Println("Invalid transaction, not adding to mempool")
 		return
 	}
+
+	for _, existingTx := range mempool.Transactions {
+		if existingTx.Hash == tx.Hash {
+			fmt.Println("Transaction already exists in mempool")
+			return
+		}
+	}
+
 	mempool.Transactions = append(mempool.Transactions, tx)
 }
 
 func (mempool *MemPool) CleanUp() {
 	now := time.Now().Unix()
 	newTxs := []Transaction{}
+
 	for _, tx := range mempool.Transactions {
 		if now-tx.Timestamp <= mempool.TimeToLive {
 			newTxs = append(newTxs, tx)
@@ -133,20 +260,20 @@ func (mempool *MemPool) CleanUp() {
 
 func (mempool *MemPool) GetTransactions(limit int) []Transaction {
 	mempool.CleanUp()
+
 	if len(mempool.Transactions) < limit {
 		limit = len(mempool.Transactions)
 	}
-	txs := mempool.Transactions[:limit]
+
+	if limit == 0 {
+		return []Transaction{}
+	}
+
+	txs := make([]Transaction, limit)
+	copy(txs, mempool.Transactions[:limit])
 	mempool.Transactions = mempool.Transactions[limit:]
 
 	return txs
-}
-
-func (blockchain *Blockchain) AddBlock(newBlock Block) {
-	if !newBlock.IsValid() {
-		return
-	}
-	blockchain.Blocks = append(blockchain.Blocks, newBlock)
 }
 
 func main() {
