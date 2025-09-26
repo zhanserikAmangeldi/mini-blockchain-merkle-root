@@ -15,7 +15,7 @@ type Transaction struct {
 	Timestamp int64
 }
 
-func (tx *Transaction) IsValid() bool {
+func (tx *Transaction) IsValid() bool { // TODO: Стоит улучшить, добавить че та или декомпозировать проверки
 	return tx.Amount > 0 && tx.From != "" && tx.To != ""
 }
 

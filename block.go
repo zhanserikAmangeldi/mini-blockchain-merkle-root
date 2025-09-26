@@ -15,6 +15,7 @@ type Block struct {
 	Timestamp    int64
 	Transactions []Transaction
 	MerkleRoot   string
+	MerkleTree   [][]string
 	Nonce        int
 }
 
@@ -87,6 +88,7 @@ func (block *Block) computeMerkleRootInternal() string {
 	if len(block.Transactions) == 0 {
 		return ""
 	}
+	block.MerkleTree = [][]string{}
 
 	layer := []string{}
 
@@ -101,6 +103,9 @@ func (block *Block) computeMerkleRootInternal() string {
 
 	for len(layer) > 1 {
 		var nextLayer []string
+		fmt.Println(1)
+		block.MerkleTree = append(block.MerkleTree, layer)
+		fmt.Println(2)
 
 		levelNum++
 		fmt.Printf("\nLevel %d Processing (%d nodes):\n", levelNum, len(layer))
@@ -147,6 +152,8 @@ func NewBlock(prevBlock *Block, transactions []Transaction) *Block {
 		Timestamp:    time.Now().Unix(),
 		Transactions: transactions,
 		Nonce:        0,
+		MerkleRoot:   "",
+		MerkleTree:   [][]string{},
 	}
 
 	newBlock.ComputeMerkleRoot()

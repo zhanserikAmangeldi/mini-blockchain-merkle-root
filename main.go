@@ -9,6 +9,29 @@ func main() {
 	demonstrateBlockchain()
 }
 
+func (b *Block) demonstrateMerkleTree() {
+	fmt.Printf("\n=== Merkle Tree Structure For Block %s ===\n", hashShort(b.Hash))
+	fmt.Printf("Level %d:%s %s\n", len(b.MerkleTree), strings.Repeat(" ", len(b.MerkleTree)*10), hashShort(b.MerkleRoot))
+
+	for i := len(b.MerkleTree) - 1; i >= 0; i-- {
+		level := b.MerkleTree[i]
+		represent_level := make([]string, len(level))
+
+		for j, hash := range level {
+			represent_level[j] = hashShort(hash)
+		}
+
+		fmt.Printf("Level %d:%s %s\n", i, strings.Repeat(" ", i*10), strings.Join(represent_level, ", "))
+	}
+}
+
+func hashShort(hash string) string {
+	if len(hash) <= 16 {
+		return hash
+	}
+	return hash[:16] + "...."
+}
+
 func demonstrateBlockchain() {
 	fmt.Println(strings.Repeat("=", 20) + " Blockchain Demonstration " + strings.Repeat("=", 20))
 
@@ -79,4 +102,7 @@ func demonstrateBlockchain() {
 		fmt.Printf("Block %d: Hash=%s, Transactions=%d\n",
 			i, block.Hash[:16]+"...", len(block.Transactions))
 	}
+
+	blockchain.Blocks[0].demonstrateMerkleTree()
+	blockchain.Blocks[1].demonstrateMerkleTree()
 }
