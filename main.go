@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	demonstrateBlockchain()
+	demonstrateMiningProcesses()
 }
 
 func (b *Block) demonstrateMerkleTree() {

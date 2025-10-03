@@ -1,3 +1,7 @@
 module mini-blockchain
 
-go 1.22.2
+go 1.24.0
+
+toolchain go1.24.1
+
+require golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9

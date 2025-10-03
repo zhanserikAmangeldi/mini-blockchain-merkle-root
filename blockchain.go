@@ -3,7 +3,9 @@ package main
 import "fmt"
 
 type Blockchain struct {
-	Blocks []Block
+	Blocks            []Block
+	CurrentDifficulty int
+	TargetBlockTime   int
 }
 
 func (blockchain *Blockchain) isValid() bool {
@@ -58,4 +60,27 @@ func (blockchain *Blockchain) GetLastBlock() *Block {
 		return nil
 	}
 	return &blockchain.Blocks[len(blockchain.Blocks)-1]
+}
+
+func (blockchain *Blockchain) adjustDifficulty() {
+	if len(blockchain.Blocks) < 2 {
+		return
+	}
+
+	lastBlock := blockchain.Blocks[len(blockchain.Blocks)-1]
+	prevBlock := blockchain.Blocks[len(blockchain.Blocks)-2]
+
+	actualTime := lastBlock.Timestamp - prevBlock.Timestamp
+
+	if actualTime < int64(blockchain.TargetBlockTime/2) {
+		blockchain.CurrentDifficulty++
+		fmt.Printf("\nToo fast, increasing difficulty: from %d to %d\n", blockchain.CurrentDifficulty-1, blockchain.CurrentDifficulty)
+	} else if actualTime > int64(blockchain.TargetBlockTime*2) {
+		if blockchain.CurrentDifficulty > 1 {
+			blockchain.CurrentDifficulty--
+			fmt.Printf("\nToo slow, decreasing difficulty: from %d to %d\n", blockchain.CurrentDifficulty+1, blockchain.CurrentDifficulty)
+		}
+	}
+
+	fmt.Println(blockchain.CurrentDifficulty)
 }

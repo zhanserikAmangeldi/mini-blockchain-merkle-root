@@ -17,10 +17,11 @@ type Block struct {
 	MerkleRoot   string
 	MerkleTree   [][]string
 	Nonce        int
+	Difficulty   int
 }
 
 func (block *Block) IsValid() bool {
-	if block.BlockHeight < 0 || len(block.Transactions) == 0 {
+	if block.BlockHeight < 0 {
 		return false
 	}
 
@@ -51,14 +52,13 @@ func (block *Block) IsValid() bool {
 }
 
 func (block *Block) computeHashInternal() string {
-	blockData := strconv.Itoa(block.BlockHeight) +
+	record := strconv.Itoa(block.BlockHeight) +
 		block.PrevHash +
 		strconv.FormatInt(block.Timestamp, 10) +
-		block.MerkleRoot +
-		strconv.Itoa(block.Nonce)
+		strconv.Itoa(block.Nonce) +
+		block.MerkleRoot
 
-	hash := sha256.Sum256([]byte(blockData))
-
+	hash := sha256.Sum256([]byte(record))
 	return fmt.Sprintf("%x", hash)
 }
 
@@ -83,8 +83,8 @@ func (block *Block) ComputeMerkleRoot() {
 }
 
 func (block *Block) computeMerkleRootInternal() string {
-	fmt.Printf("\nCOMPUTING MERKLE ROOT FOR BLOCK %d\n", block.BlockHeight)
-	fmt.Println(strings.Repeat("=", 40))
+	// fmt.Printf("\nCOMPUTING MERKLE ROOT FOR BLOCK %d\n", block.BlockHeight)
+	// fmt.Println(strings.Repeat("=", 40))
 	if len(block.Transactions) == 0 {
 		return ""
 	}
@@ -92,47 +92,47 @@ func (block *Block) computeMerkleRootInternal() string {
 
 	layer := []string{}
 
-	fmt.Printf("Starting with %d transactions:\n", len(block.Transactions))
-	for i, tx := range block.Transactions {
+	// fmt.Printf("Starting with %d transactions:\n", len(block.Transactions))
+	for _, tx := range block.Transactions {
 		layer = append(layer, tx.Hash)
-		fmt.Printf("   TX%d: %s -> %s (%.2f) | Hash: %s\n",
-			i+1, tx.From, tx.To, tx.Amount, tx.Hash)
+		// fmt.Printf("   TX%d: %s -> %s (%.2f) | Hash: %s\n",
+		// i+1, tx.From, tx.To, tx.Amount, tx.Hash)
 	}
 
 	levelNum := 0
 
 	for len(layer) > 1 {
 		var nextLayer []string
-		fmt.Println(1)
+		// fmt.Println(1)
 		block.MerkleTree = append(block.MerkleTree, layer)
-		fmt.Println(2)
+		// fmt.Println(2)
 
 		levelNum++
-		fmt.Printf("\nLevel %d Processing (%d nodes):\n", levelNum, len(layer))
-		fmt.Println("Layer:", layer)
+		// fmt.Printf("\nLevel %d Processing (%d nodes):\n", levelNum, len(layer))
+		// fmt.Println("Layer:", layer)
 		for i := 0; i < len(layer); i += 2 {
 			left := layer[i]
 			right := left
 
 			if i+1 < len(layer) {
 				right = layer[i+1]
-				fmt.Printf("   Pair %d: %s + %s\n", (i/2)+1, left, right)
+				// fmt.Printf("   Pair %d: %s + %s\n", (i/2)+1, left, right)
 			} else {
-				fmt.Printf("   Pair %d: %s + %s (duplicated - odd number)\n", (i/2)+1, left, right)
+				// fmt.Printf("   Pair %d: %s + %s (duplicated - odd number)\n", (i/2)+1, left, right)
 			}
 
 			combined := left + right
 			hash := sha256.Sum256([]byte(combined))
 			nextLayer = append(nextLayer, fmt.Sprintf("%x", hash))
 
-			fmt.Printf("      Result: %x\n", hash)
+			// fmt.Printf("      Result: %x\n", hash)
 		}
 
 		layer = nextLayer
-		fmt.Printf("   → Next level will have %d nodes\n", len(nextLayer))
+		// fmt.Printf("   → Next level will have %d nodes\n", len(nextLayer))
 	}
 
-	fmt.Printf("\nMERKLE ROOT: %s\n", layer[0])
+	// fmt.Printf("\nMERKLE ROOT: %s\n", layer[0])
 	fmt.Println(strings.Repeat("=", 80))
 	return layer[0]
 }
