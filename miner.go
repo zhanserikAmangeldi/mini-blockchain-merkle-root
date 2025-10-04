@@ -20,7 +20,7 @@ func mine(lastBlock *Block, txs []Transaction, difficulty int) Block {
 		Difficulty:   difficulty,
 	}
 	newBlock.ComputeMerkleRoot()
-
+	newBlock.Starting_mining = time.Now().Unix()
 	for {
 		newBlock.Nonce = nonce
 		hash = newBlock.computeHashInternal()
@@ -31,6 +31,9 @@ func mine(lastBlock *Block, txs []Transaction, difficulty int) Block {
 		}
 		nonce++
 	}
+	newBlock.Ending_mining = time.Now().Unix()
+
+	newBlock.FullCreationTime = newBlock.Ending_mining - newBlock.Starting_mining
 
 	return newBlock
 }
@@ -58,7 +61,6 @@ func proofOfMine(mempool *MemPool, blockChan chan<- Block, blockchain *Blockchai
 	for {
 		lastBlock := blockchain.GetLastBlock()
 		if lastBlock == nil {
-			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
@@ -69,8 +71,8 @@ func proofOfMine(mempool *MemPool, blockChan chan<- Block, blockchain *Blockchai
 			continue
 		}
 
-		fmt.Printf("	Mined block %d | txs: %d | hash: %s...\n",
-			block.BlockHeight, len(block.Transactions), hashShort(block.Hash))
+		fmt.Printf("	Mined block %d | txs: %d | hash: %s... in %d seconds\n",
+			block.BlockHeight, len(block.Transactions), hashShort(block.Hash), block.FullCreationTime)
 		for _, tx := range block.Transactions {
 			fmt.Printf("		%s -> %s (%.2f)\n", tx.From, tx.To, tx.Amount)
 		}
@@ -106,7 +108,7 @@ func demonstrateMiningProcesses() {
 
 	genesisBlock := NewBlock(nil, []Transaction{})
 
-	AAA_blockchain := &Blockchain{CurrentDifficulty: 6, TargetBlockTime: 20}
+	AAA_blockchain := &Blockchain{CurrentDifficulty: 6, TargetBlockTime: 15}
 	memory := &MemPool{TimeToLive: 30}
 
 	AAA_blockchain.AddBlock(*genesisBlock)
@@ -115,7 +117,7 @@ func demonstrateMiningProcesses() {
 	go proofOfMine(memory, blockChan, AAA_blockchain)
 
 	for block := range blockChan {
-		fmt.Printf("📦 Block %d confirmed (txs: %d)\n",
+		fmt.Printf("	Block %d confirmed (txs: %d)\n",
 			block.BlockHeight, len(block.Transactions))
 	}
 }

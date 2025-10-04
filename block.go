@@ -9,15 +9,18 @@ import (
 )
 
 type Block struct {
-	BlockHeight  int
-	Hash         string
-	PrevHash     string
-	Timestamp    int64
-	Transactions []Transaction
-	MerkleRoot   string
-	MerkleTree   [][]string
-	Nonce        int
-	Difficulty   int
+	BlockHeight      int
+	Hash             string
+	PrevHash         string
+	Timestamp        int64
+	Transactions     []Transaction
+	MerkleRoot       string
+	MerkleTree       [][]string
+	Nonce            int
+	Difficulty       int
+	Starting_mining  int64
+	Ending_mining    int64
+	FullCreationTime int64
 }
 
 func (block *Block) IsValid() bool {
